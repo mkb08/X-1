@@ -1,0 +1,30 @@
+{
+  "name": "tz-arb-scanner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Timezone-gap news scanner: overseas headlines vs. US prediction markets, with a paper-trading desk.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "scan:local": "node --experimental-strip-types scripts/scan-local.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.1",
+    "@neondatabase/serverless": "^1.2.0",
+    "fast-xml-parser": "^5.11.2",
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}

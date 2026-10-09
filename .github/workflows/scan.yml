@@ -1,0 +1,23 @@
+name: Overnight scan
+
+# Vercel's free plan only allows one cron run per day, so GitHub Actions
+# drives the scanner every 30 minutes instead. The app rate-limits scans
+# server-side, so extra or overlapping calls are harmless.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Trigger scan
+        env:
+          # Override with a repository variable named APP_URL if you add a custom domain.
+          APP_URL: ${{ vars.APP_URL || 'https://tz-arb-scanner.vercel.app' }}
+        run: |
+          curl -sS --max-time 330 "$APP_URL/api/scan?trigger=github-cron" -w "\nHTTP %{http_code}\n"
