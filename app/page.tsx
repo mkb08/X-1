@@ -37,7 +37,7 @@ export default function Home() {
     try {
       setState(await api<AppState>("/api/state"));
     } catch (e) {
-      setState((s) => ({ ...(s ?? { config: { database: false, ai: false, model: "", passcode: false, minScanIntervalMin: 10 } }), error: (e as Error).message }));
+      setState((s) => ({ ...(s ?? { config: { database: false, ai: false, analysis: "off" as const, model: "", passcode: false, minScanIntervalMin: 10 } }), error: (e as Error).message }));
     }
     setRefreshKey((k) => k + 1);
   }, []);
@@ -121,8 +121,8 @@ export default function Home() {
           TZ<span>/</span>ARB <span className="dim" style={{ color: "var(--dim)", fontWeight: 400 }}>night desk</span>
         </div>
         <span className="pill">
-          <span className={`dot ${state?.config.ai && state.config.database ? "on" : state ? "warn" : ""}`} />
-          {state ? (state.config.ai ? "AI on" : "AI off") : "…"} · paper
+          <span className={`dot ${state && state.config.analysis !== "off" && state.config.database ? "on" : state ? "warn" : ""}`} />
+          {state ? { api: "AI on", routine: "AI hourly", off: "AI off" }[state.config.analysis] : "…"} · paper
         </span>
       </header>
 

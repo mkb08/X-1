@@ -6,7 +6,14 @@ import { EXCHANGES, sessionState, usOvernight } from "@/lib/sessions";
 import type { ScanRow, Settings, TradeRow } from "@/lib/types";
 
 export interface AppState {
-  config: { database: boolean; ai: boolean; model: string; passcode: boolean; minScanIntervalMin: number };
+  config: {
+    database: boolean;
+    ai: boolean;
+    analysis: "api" | "routine" | "off";
+    model: string;
+    passcode: boolean;
+    minScanIntervalMin: number;
+  };
   settings?: Settings;
   portfolio?: Portfolio;
   scans?: (ScanRow & { feeds?: { source: string; region: string; ok: boolean; count: number; error: string | null }[] })[];

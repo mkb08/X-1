@@ -14,7 +14,8 @@ export function Desk({
 }) {
   useNow(15_000);
   const pf = state.portfolio;
-  const last = state.scans?.[0];
+  const last = state.scans?.find((s) => s.trigger !== "claude-routine");
+  const lastReview = state.scans?.find((s) => s.trigger === "claude-routine");
   const nextAllowed = last ? new Date(new Date(last.started_at).getTime() + state.config.minScanIntervalMin * 60_000).toISOString() : null;
   const waiting = nextAllowed ? new Date(nextAllowed).getTime() > Date.now() : false;
   const pnl = pf ? pf.equity - pf.bankroll : 0;
@@ -29,7 +30,13 @@ export function Desk({
           <strong>Database not connected.</strong> Add <code>DATABASE_URL</code> in Vercel → Project → Settings → Environment Variables, then redeploy.
         </div>
       )}
-      {state.config.database && !state.config.ai && (
+      {state.config.database && state.config.analysis === "routine" && (
+        <div className="notice" style={{ borderColor: "rgba(96,165,250,0.45)", background: "rgba(96,165,250,0.1)" }}>
+          <strong>Scored hourly by your Claude Code routine.</strong> No API credits needed. New matches show as WATCH until the next
+          review{lastReview ? `, last one ${ago(lastReview.started_at)} (${lastReview.signals} scored, ${lastReview.passes} pass)` : ", which hasn't run yet"}.
+        </div>
+      )}
+      {state.config.database && state.config.analysis === "off" && (
         <div className="notice">
           <strong>AI analysis is off.</strong> The scanner still pulls news and matches markets, but nothing gets scored or traded until you add <code>ANTHROPIC_API_KEY</code> in Vercel → Settings → Environment Variables and redeploy.
         </div>
@@ -117,7 +124,8 @@ export function Desk({
                 <span className="dim">running…</span>
               ) : (
                 <>
-                  {s.headlines} news · {s.candidates} links · <span className={s.passes ? "pos" : ""}>{s.passes} pass</span>
+                  {s.trigger === "claude-routine" ? `${s.signals} reviewed` : `${s.headlines} news · ${s.candidates} links`} ·{" "}
+                  <span className={s.passes ? "pos" : ""}>{s.passes} pass</span>
                   {s.trades_opened ? ` · ${s.trades_opened} trade` : ""}
                 </>
               )}

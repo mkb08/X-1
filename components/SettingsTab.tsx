@@ -67,7 +67,9 @@ export function SettingsTab({ state, onSaved, toast }: { state: AppState; onSave
         </div>
         <div className="list-row">
           <span>AI analysis</span>
-          <span className={cfg.ai ? "pos" : "neg"}>{cfg.ai ? cfg.model : "missing ANTHROPIC_API_KEY"}</span>
+          <span className={cfg.analysis === "off" ? "neg" : "pos"}>
+            {cfg.analysis === "api" ? cfg.model : cfg.analysis === "routine" ? "Claude Code routine (hourly)" : "missing ANTHROPIC_API_KEY"}
+          </span>
         </div>
         <div className="list-row">
           <span>Passcode lock</span>
@@ -126,8 +128,12 @@ export function SettingsTab({ state, onSaved, toast }: { state: AppState; onSave
                 id={f.key}
                 type="number"
                 inputMode="decimal"
-                value={Math.round(Number(draft[f.key]) * (f.scale ?? 1) * 100) / 100}
-                onChange={(e) => setDraft({ ...draft, [f.key]: Number(e.target.value) / (f.scale ?? 1) })}
+                value={(draft[f.key] as unknown) === "" ? "" : Math.round(Number(draft[f.key]) * (f.scale ?? 1) * 100) / 100}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  // Keep an emptied box empty while typing; the server ignores blank fields on save.
+                  setDraft({ ...draft, [f.key]: raw === "" ? "" : Number(raw) / (f.scale ?? 1) } as Settings);
+                }}
               />
             </div>
           ))}

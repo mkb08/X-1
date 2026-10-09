@@ -1,5 +1,5 @@
 import { errorResponse } from "@/lib/auth";
-import { aiConfigured, aiModel } from "@/lib/analyze";
+import { aiConfigured, aiModel, analysisMode } from "@/lib/analyze";
 import { hasDatabase, ready } from "@/lib/db";
 import { portfolio } from "@/lib/paper";
 import { minScanIntervalMs } from "@/lib/scan";
@@ -11,6 +11,7 @@ export async function GET() {
   const config = {
     database: hasDatabase(),
     ai: aiConfigured(),
+    analysis: analysisMode(),
     model: aiModel(),
     passcode: Boolean(process.env.APP_PASSCODE),
     minScanIntervalMin: minScanIntervalMs() / 60_000,

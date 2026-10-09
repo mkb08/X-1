@@ -72,6 +72,8 @@ const SCHEMA = [
     UNIQUE (headline_id, venue, market_id)
   )`,
   `CREATE INDEX IF NOT EXISTS signals_created_idx ON signals (created_at DESC)`,
+  // Market snapshot so a later reviewer (the Claude Code routine) sees the same context.
+  `ALTER TABLE signals ADD COLUMN IF NOT EXISTS market JSONB`,
   `CREATE TABLE IF NOT EXISTS trades (
     id SERIAL PRIMARY KEY,
     signal_id INTEGER,

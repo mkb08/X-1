@@ -46,6 +46,7 @@ checklist per match), **Trades**, **News**, and **Settings** (all thresholds are
    | `ANTHROPIC_API_KEY` | yes, for AI scoring | Without it, matches show as WATCH and nothing trades. |
    | `ANTHROPIC_WORKSPACE_ID` | only for identity-linked keys | Set it if scans report "not scoped to a workspace". Use a named workspace's `wrkspc_…` ID. |
    | `APP_PASSCODE` | recommended | Locks settings, trades and reset. Enter it once in the app's Settings tab. |
+   | `ANALYSIS_MODE` | no | `routine` = score with an hourly Claude Code routine on your subscription (see below). |
    | `ANALYSIS_MODEL` | no | Defaults to `claude-opus-5-5`. |
    | `ANALYSIS_EFFORT` | no | `low` / `medium` (default) / `high`. Lower is cheaper. |
    | `MIN_SCAN_INTERVAL_MIN` | no | Minimum minutes between scans (default 10). Protects your API budget. |
@@ -59,6 +60,33 @@ checklist per match), **Trades**, **News**, and **Settings** (all thresholds are
    - switch Vercel Authentication to **Standard Protection** (previews only) and set `APP_PASSCODE`.
 
    The workflow logs a warning with these steps when it gets a 401.
+
+### Run the AI step on a Claude subscription (no API credits)
+
+Set `ANALYSIS_MODE=routine` in Vercel. Scans then stop calling the API and leave new matches as WATCH. A Claude
+Code **Routine** (Claude Code on the web → Routines) running every hour does the judging on your subscription:
+
+1. `GET /api/pending?limit=20` (header `x-passcode`) returns unscored matches, the judging instructions, and
+   the response format.
+2. The routine's Claude session judges each match.
+3. `POST /api/evaluations` (same header) stores the judgments. The app re-prices each market, runs the same
+   checks, and paper-trades the ones that pass.
+
+Routine prompt (replace `<PASSCODE>`; never commit the real one):
+
+```text
+You are the hourly reviewer for the TZ Arb Night Desk paper-trading app at https://tz-arb-scanner.vercel.app.
+Your only job is to score pending news/market matches through its API. Do not edit, commit or push files.
+1. curl -sS "https://tz-arb-scanner.vercel.app/api/pending?limit=20" -H "x-passcode: <PASSCODE>"
+2. If "count" is 0, reply "No pending matches." and stop.
+3. Judge every candidate yourself, following "instructions" exactly, with no web browsing.
+4. Write /tmp/evaluations.json shaped like "respond_with.body" (one entry per candidate id, all seven
+   fields) and POST it to /api/evaluations with the same passcode header and content-type: application/json.
+5. Reply in one line: scored / PASS / trades opened from the POST response, or the HTTP error.
+```
+
+Routines run at most hourly, so reactions are slower than the API path, and each run uses your plan's Claude
+Code usage. To switch back to the API, add credits and delete `ANALYSIS_MODE`.
 
 ### Put it on your phone
 

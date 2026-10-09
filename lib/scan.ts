@@ -1,4 +1,4 @@
-import { aiConfigured, evaluateCandidates } from "./analyze";
+import { aiConfigured, analysisMode, evaluateCandidates } from "./analyze";
 import { ready } from "./db";
 import { fetchHeadlines, type FeedResult } from "./feeds";
 import { fetchKalshi, fetchPolymarket, quoteFromMarket, type Quote } from "./markets";
@@ -65,7 +65,12 @@ export function assess(c: Candidate, ev: Evaluation | undefined, s: Settings, no
   ];
 
   if (!ev) {
-    checks.push({ name: "AI analysis", pass: false, detail: aiConfigured() ? "not evaluated this scan" : "add ANTHROPIC_API_KEY to enable" });
+    const mode = analysisMode();
+    checks.push({
+      name: "AI analysis",
+      pass: false,
+      detail: mode === "routine" ? "waiting for the hourly Claude review" : mode === "api" ? "not evaluated this scan" : "add ANTHROPIC_API_KEY to enable",
+    });
     return { checks, verdict: "WATCH", side: null, price: null, fair: null, edge: null };
   }
 
@@ -130,7 +135,7 @@ export async function runScan(trigger: string, force = false): Promise<ScanSumma
   const settings = await loadSettings();
   const now = Date.now();
 
-  const [last] = (await sql`SELECT id, started_at, finished_at FROM scans ORDER BY id DESC LIMIT 1`) as {
+  const [last] = (await sql`SELECT id, started_at, finished_at FROM scans WHERE trigger <> 'claude-routine' ORDER BY id DESC LIMIT 1`) as {
     id: number;
     started_at: string;
     finished_at: string | null;
@@ -181,7 +186,7 @@ export async function runScan(trigger: string, force = false): Promise<ScanSumma
 
     const { evaluations, errors } = await evaluateCandidates(fresh);
     notes.push(...errors);
-    if (!aiConfigured()) notes.push("ANTHROPIC_API_KEY is not set: candidates are listed as WATCH without AI scoring.");
+    if (analysisMode() === "off") notes.push("ANTHROPIC_API_KEY is not set: candidates are listed as WATCH without AI scoring.");
 
     // Persist signals.
     const passes: { signalId: number; c: Candidate; a: ReturnType<typeof assess> }[] = [];
@@ -192,15 +197,17 @@ export async function runScan(trigger: string, force = false): Promise<ScanSumma
       const rows = (await sql`
         INSERT INTO signals (scan_id, headline_id, headline, headline_url, source, region, published_at, venue, market_id,
                              market_question, market_url, closes_at, side, side_label, market_price, fair_prob, edge,
-                             confidence, match_score, reasoning, checks, verdict)
+                             confidence, match_score, reasoning, checks, verdict, market)
         VALUES (${scanId}, ${c.headline.id}, ${c.headline.title}, ${c.headline.link}, ${c.headline.source}, ${c.headline.region},
                 ${c.headline.publishedAt}, ${c.market.venue}, ${c.market.id}, ${c.market.question}, ${c.market.url},
                 ${c.market.closesAt}, ${a.side}, ${a.side === null ? null : c.market.outcomes[a.side]}, ${a.price}, ${a.fair},
-                ${a.edge}, ${ev?.confidence ?? null}, ${c.score}, ${reasoning}, ${JSON.stringify(a.checks)}::jsonb, ${a.verdict})
+                ${a.edge}, ${ev?.confidence ?? null}, ${c.score}, ${reasoning}, ${JSON.stringify(a.checks)}::jsonb, ${a.verdict},
+                ${JSON.stringify(c.market)}::jsonb)
         ON CONFLICT (headline_id, venue, market_id) DO UPDATE SET
           scan_id = EXCLUDED.scan_id, created_at = now(), side = EXCLUDED.side, side_label = EXCLUDED.side_label,
           market_price = EXCLUDED.market_price, fair_prob = EXCLUDED.fair_prob, edge = EXCLUDED.edge,
-          confidence = EXCLUDED.confidence, reasoning = EXCLUDED.reasoning, checks = EXCLUDED.checks, verdict = EXCLUDED.verdict
+          confidence = EXCLUDED.confidence, reasoning = EXCLUDED.reasoning, checks = EXCLUDED.checks, verdict = EXCLUDED.verdict,
+          market = EXCLUDED.market
         WHERE signals.verdict = 'WATCH'
         RETURNING id`) as { id: number }[];
       if (a.verdict === "PASS" && rows[0]) passes.push({ signalId: rows[0].id, c, a });

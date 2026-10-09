@@ -35,7 +35,8 @@ export function sanitizeSettings(input: Partial<Settings>, base: Settings = DEFA
   const out: Settings = { ...base };
   for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]) {
     const v = input[key];
-    if (v === undefined) continue;
+    // Blank or missing values keep the current setting instead of collapsing to the minimum.
+    if (v === undefined || v === null || (v as unknown) === "") continue;
     if (key === "autoTrade") out.autoTrade = Boolean(v);
     else if (key === "regions") {
       if (Array.isArray(v)) out.regions = ALL_REGIONS.filter((r) => (v as string[]).includes(r));

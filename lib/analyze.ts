@@ -6,8 +6,21 @@ const FALLBACK_MODELS = new Set(["claude-fable-5-1", "claude-opus-5-5", "claude-
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 type Effort = (typeof EFFORTS)[number];
 
+export type AnalysisMode = "api" | "routine" | "off";
+
+/**
+ * "api": scans call the Claude API directly (needs API credits).
+ * "routine": a scheduled Claude Code routine scores matches via /api/pending + /api/evaluations,
+ *            which runs on a Claude subscription instead of API credits.
+ */
+export function analysisMode(): AnalysisMode {
+  if (process.env.ANALYSIS_MODE === "routine") return "routine";
+  return process.env.ANTHROPIC_API_KEY ? "api" : "off";
+}
+
+/** True when scans should call the Claude API themselves. */
 export function aiConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return analysisMode() === "api";
 }
 
 export function aiModel(): string {
@@ -19,7 +32,7 @@ function aiEffort(): Effort {
   return e && EFFORTS.includes(e) ? e : "medium";
 }
 
-const SYSTEM = `You are the analysis desk for a news-latency scanner.
+export const ANALYSIS_INSTRUCTIONS = `You are the analysis desk for a news-latency scanner.
 
 Each candidate pairs a headline from an overseas outlet (Japan, Asia, Europe, Australia, Middle East) with a prediction market on a U.S.-accessible venue (Kalshi or Polymarket). The pair was found by keyword overlap, so most pairs are coincidences.
 
@@ -61,11 +74,12 @@ const SCHEMA = {
 const clamp01 = (n: unknown) => Math.min(1, Math.max(0, Number(n) || 0));
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
-function describe(c: Candidate, idx: number, now: number) {
+/** The candidate as Claude sees it. Shared by the API path and the routine path. */
+export function describe(c: Candidate, id: string, now: number) {
   const m = c.market;
   const mid = (m.bid[0] + m.ask[0]) / 2;
   return {
-    id: String(idx),
+    id,
     headline: {
       title: c.headline.title,
       summary: c.headline.summary.slice(0, 300),
@@ -92,11 +106,11 @@ function describe(c: Candidate, idx: number, now: number) {
 export async function evaluateChunk(client: Anthropic, chunk: Candidate[], offset: number): Promise<Map<string, Evaluation>> {
   const now = Date.now();
   const model = aiModel();
-  const payload = chunk.map((c, i) => describe(c, offset + i, now));
+  const payload = chunk.map((c, i) => describe(c, String(offset + i), now));
   const response = await client.beta.messages.create({
     model,
     max_tokens: 16000,
-    system: SYSTEM,
+    system: ANALYSIS_INSTRUCTIONS,
     output_config: { effort: aiEffort(), format: { type: "json_schema", schema: SCHEMA } },
     ...(FALLBACK_MODELS.has(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
     messages: [
@@ -121,16 +135,21 @@ export async function evaluateChunk(client: Anthropic, chunk: Candidate[], offse
     const idx = Number(e.id) - offset;
     const cand = chunk[idx];
     if (!cand) continue;
-    out.set(cand.key, {
-      relevant: Boolean(e.relevant),
-      resolvedByNews: Boolean(e.resolved_by_news),
-      probOutcome0: clamp01(e.prob_outcome_0),
-      confidence: clamp01(e.confidence),
-      alreadyPriced: Boolean(e.already_priced),
-      reasoning: String(e.reasoning ?? "").slice(0, 600),
-    });
+    out.set(cand.key, toEvaluation(e));
   }
   return out;
+}
+
+/** Normalize one raw evaluation object (snake_case, as in ANALYSIS_INSTRUCTIONS). */
+export function toEvaluation(e: Record<string, unknown>): Evaluation {
+  return {
+    relevant: e.relevant === true,
+    resolvedByNews: e.resolved_by_news === true,
+    probOutcome0: clamp01(e.prob_outcome_0),
+    confidence: clamp01(e.confidence),
+    alreadyPriced: e.already_priced === true,
+    reasoning: String(e.reasoning ?? "").slice(0, 600),
+  };
 }
 
 /** Ask Claude to judge each headline/market pair. Returns evaluations keyed by candidate key. */
