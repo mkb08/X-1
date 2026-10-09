@@ -14,7 +14,12 @@ export interface FeedSource {
  */
 export const FEEDS: FeedSource[] = [
   { region: "Japan", source: "Japan Times", url: "https://www.japantimes.co.jp/feed/" },
-  { region: "Japan", source: "Nikkei Asia", url: "https://asia.nikkei.com/rss/feed/nar" },
+  // Nikkei's own RSS carries no publish dates, so read it through Google News' dated index.
+  {
+    region: "Japan",
+    source: "Nikkei Asia",
+    url: "https://news.google.com/rss/search?q=site:asia.nikkei.com+when:1d&hl=en-US&gl=US&ceid=US:en",
+  },
   { region: "Asia", source: "South China Morning Post", url: "https://www.scmp.com/rss/91/feed" },
   { region: "Asia", source: "Straits Times", url: "https://www.straitstimes.com/news/asia/rss.xml" },
   { region: "Asia", source: "Mint Markets", url: "https://www.livemint.com/rss/markets" },
