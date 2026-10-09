@@ -51,6 +51,13 @@ checklist per match), **Trades**, **News**, and **Settings** (all thresholds are
 
 3. Redeploy. If your domain isn't `tz-arb-scanner.vercel.app`, set a GitHub **repository variable** `APP_URL`
    (Settings → Secrets and variables → Actions → Variables) so the scheduled workflow calls the right URL.
+4. **If the project uses Vercel Authentication** (Deployment Protection on production), the 30-minute GitHub
+   scheduler can't get through until you either:
+   - copy Vercel → Project → Settings → Deployment Protection → **Protection Bypass for Automation** into a
+     GitHub Actions **secret** named `VERCEL_AUTOMATION_BYPASS_SECRET`; or
+   - switch Vercel Authentication to **Standard Protection** (previews only) and set `APP_PASSCODE`.
+
+   The workflow logs a warning with these steps when it gets a 401.
 
 ### Put it on your phone
 

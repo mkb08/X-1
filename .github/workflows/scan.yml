@@ -19,5 +19,15 @@ jobs:
         env:
           # Override with a repository variable named APP_URL if you add a custom domain.
           APP_URL: ${{ vars.APP_URL || 'https://tz-arb-scanner.vercel.app' }}
+          # Needed only while the deployment is behind Vercel Authentication:
+          # Vercel → Project → Settings → Deployment Protection → Protection Bypass for Automation.
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          curl -sS --max-time 330 "$APP_URL/api/scan?trigger=github-cron" -w "\nHTTP %{http_code}\n"
+          args=()
+          if [ -n "$BYPASS" ]; then args+=(-H "x-vercel-protection-bypass: $BYPASS"); fi
+          code=$(curl -sS -o response.txt -w "%{http_code}" --max-time 330 "${args[@]}" "$APP_URL/api/scan?trigger=github-cron" || true)
+          head -c 2000 response.txt; echo
+          echo "HTTP $code"
+          if [ "$code" = "401" ] || [ "$code" = "403" ]; then
+            echo "::warning::The app is behind Vercel Authentication. Add its Protection Bypass for Automation secret as the GitHub Actions secret VERCEL_AUTOMATION_BYPASS_SECRET."
+          fi
