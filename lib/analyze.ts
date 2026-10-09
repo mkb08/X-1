@@ -141,7 +141,13 @@ export async function evaluateCandidates(
   const errors: string[] = [];
   if (!candidates.length || !aiConfigured()) return { evaluations, errors };
 
-  const client = new Anthropic({ maxRetries: 2, timeout: 240_000 });
+  // Identity-linked keys (not tied to one workspace) must name the workspace on every request.
+  const workspace = process.env.ANTHROPIC_WORKSPACE_ID;
+  const client = new Anthropic({
+    maxRetries: 2,
+    timeout: 240_000,
+    ...(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {}),
+  });
   const size = 12;
   const chunks: [Candidate[], number][] = [];
   for (let i = 0; i < candidates.length; i += size) chunks.push([candidates.slice(i, i + size), i]);

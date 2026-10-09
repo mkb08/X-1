@@ -44,6 +44,7 @@ checklist per match), **Trades**, **News**, and **Settings** (all thresholds are
    | --- | --- | --- |
    | `DATABASE_URL` | yes | Neon/Postgres connection string. Tables are created automatically. |
    | `ANTHROPIC_API_KEY` | yes, for AI scoring | Without it, matches show as WATCH and nothing trades. |
+   | `ANTHROPIC_WORKSPACE_ID` | only for identity-linked keys | Set it if scans report "not scoped to a workspace". Use a named workspace's `wrkspc_…` ID. |
    | `APP_PASSCODE` | recommended | Locks settings, trades and reset. Enter it once in the app's Settings tab. |
    | `ANALYSIS_MODEL` | no | Defaults to `claude-opus-5-5`. |
    | `ANALYSIS_EFFORT` | no | `low` / `medium` (default) / `high`. Lower is cheaper. |
