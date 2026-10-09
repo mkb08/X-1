@@ -157,7 +157,15 @@ export async function evaluateCandidates(
     if (r.status === "fulfilled") r.value.forEach((v, k) => evaluations.set(k, v));
     else if (r.reason instanceof Anthropic.AuthenticationError) errors.push("Anthropic API key was rejected (401).");
     else if (r.reason instanceof Anthropic.RateLimitError) errors.push("Anthropic rate limit hit (429); will retry next scan.");
-    else if (r.reason instanceof Anthropic.APIError) errors.push(`Anthropic API error ${r.reason.status ?? ""}: ${r.reason.message}`.slice(0, 300));
+    else if (r.reason instanceof Anthropic.APIError) {
+      const body = r.reason.error as { error?: { message?: string } } | undefined;
+      const msg = body?.error?.message ?? r.reason.message;
+      errors.push(
+        /credit balance/i.test(msg)
+          ? "Anthropic account is out of API credits: add credits at platform.claude.com → Plans & Billing."
+          : `Anthropic API error ${r.reason.status ?? ""}: ${msg}`.slice(0, 300),
+      );
+    }
     else errors.push(String(r.reason?.message ?? r.reason).slice(0, 300));
   }
   return { evaluations, errors: [...new Set(errors)] };
